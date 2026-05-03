@@ -1,5 +1,7 @@
 from fastapi import FastAPI, Depends, HTTPException, Header
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
 from typing import Dict, List
 from pydantic import BaseModel
 import os
@@ -38,13 +40,11 @@ DATABASE_URL = os.getenv(
 app = FastAPI()
 
 # =============================
-# 🔐 CORS (IMPORTANT)
+# 🔐 CORS (UPDATED)
 # =============================
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "https://survey-studio-three.vercel.app"  # 🔥 your actual URL
-    ],
+    allow_origins=["*"],  # ✅ allow Darwin access
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -136,7 +136,6 @@ def get_current_user(authorization: str = Header(None)):
 
     email = payload["sub"]
 
-    # 🔐 Double-check allowed users
     if email not in ALLOWED_EMAILS:
         raise HTTPException(403, "Access denied")
 
@@ -152,28 +151,6 @@ def get_db():
     finally:
         db.close()
 
-def seed_users():
-    db = SessionLocal()
-
-    users = [
-        {"email": "lokesh.m", "password": "Loke@1902"},
-        {"email": "nishmitha.k", "password": "Nish@8980"},
-        {"email": "goureesh.hegde", "password": "Gour@6564"},
-        {"email": "dinesh1.kalimuthu", "password": "Dine@7860"},
-        {"email": "shiprapandey", "password": "Ship@1424"},
-    ]
-
-    for u in users:
-        existing = db.query(User).filter(User.email == u["email"]).first()
-
-        if not existing:
-            db.add(User(
-                email=u["email"],
-                password=hash_password(u["password"])
-            ))
-
-    db.commit()
-    db.close()
 # =============================
 # 🔹 REQUEST MODELS
 # =============================
@@ -185,7 +162,7 @@ class AuthRequest(BaseModel):
     password: str
 
 # =============================
-# 🔐 ALLOWED USERS (FIXED)
+# 🔐 ALLOWED USERS
 # =============================
 ALLOWED_EMAILS = [
     "lokesh.m",
@@ -198,7 +175,6 @@ ALLOWED_EMAILS = [
 # =============================
 # 🔐 AUTH ROUTES
 # =============================
-
 @app.post("/signup")
 def signup(req: AuthRequest, db: Session = Depends(get_db)):
     email = req.email.lower().strip()
@@ -248,7 +224,7 @@ async def preview(req: TextRequest):
         return {"error": str(e), "questions": []}
 
 # =============================
-# 🔒 GENERATE (FULLY PROTECTED)
+# 🔒 GENERATE
 # =============================
 @app.post("/generate")
 async def generate(payload: List[Dict], user=Depends(get_current_user)):
@@ -265,3 +241,21 @@ async def generate(payload: List[Dict], user=Depends(get_current_user)):
 
     except Exception as e:
         return {"error": str(e), "xml": ""}
+
+# =============================
+# 🌐 SERVE REACT FRONTEND
+# =============================
+frontend_path = os.path.join(
+    os.path.dirname(__file__),
+    "../frontend/dist"
+)
+
+@app.get("/")
+def serve_react():
+    return FileResponse(os.path.join(frontend_path, "index.html"))
+
+app.mount(
+    "/assets",
+    StaticFiles(directory=os.path.join(frontend_path, "assets")),
+    name="assets"
+)
