@@ -6,8 +6,8 @@ from typing import Dict, List
 from pydantic import BaseModel
 import os
 
-from parser_service import smart_block_parser
-from xml_generator import generate_xml
+from backend.parser_service import smart_block_parser
+from backend.xml_generator import generate_xml
 
 # =============================
 # 🔐 AUTH + SECURITY
@@ -242,20 +242,18 @@ async def generate(payload: List[Dict], user=Depends(get_current_user)):
     except Exception as e:
         return {"error": str(e), "xml": ""}
 
+
 # =============================
-# 🌐 SERVE REACT FRONTEND
+# 🌐 SERVE REACT FRONTEND (FINAL)
 # =============================
 frontend_path = os.path.join(
     os.path.dirname(__file__),
     "../frontend/dist"
 )
 
-@app.get("/")
-def serve_react():
-    return FileResponse(os.path.join(frontend_path, "index.html"))
-
+# Serve all static files (JS, CSS, assets)
 app.mount(
-    "/assets",
-    StaticFiles(directory=os.path.join(frontend_path, "assets")),
-    name="assets"
+    "/",
+    StaticFiles(directory=frontend_path, html=True),
+    name="frontend"
 )
