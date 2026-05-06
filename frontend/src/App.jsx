@@ -2,6 +2,9 @@ import { useState, useEffect } from "react";
 import { previewQuestion, generateXML } from "./api";
 import SurveyPreview from "./components/SurveyPreview";
 import GenerateButton from "./components/GenerateButton";
+import { getUser, logout } from "./auth";
+
+import Login from "./Login";
 
 
 // 🔥 CLEAN SPECIAL TAGS (ANCHOR, EXCLUSIVE, ETC.)
@@ -12,6 +15,7 @@ const cleanText = (txt) =>
 
 
 export default function App() {
+  const [user, setUser] = useState(null);
   const [questions, setQuestions] = useState([]);
   const [activeIndex, setActiveIndex] = useState(0);
   const [parsed, setParsed] = useState([]);
@@ -79,6 +83,20 @@ export default function App() {
 
   const [xml, setXml] = useState("");
   const [loading, setLoading] = useState(false);
+
+  // ============================================
+  // 🔐 AUTH CHECK
+  // ============================================
+  useEffect(() => {
+    const token = localStorage.getItem("token");
+    const u = localStorage.getItem("user");
+
+    if (token && u) {
+      setUser(u);   // ✅ valid session
+    } else {
+      setUser(null); // 🔥 force login
+    }
+  }, []);
   // ============================================
   // 🔧 FUNCTIONS (safe below)
   // ============================================
@@ -1104,1217 +1122,1248 @@ export default function App() {
   // ============================================
   return (
     <>
-      {/* =====================================================
-        🧱 MAIN LAYOUT (SIDEBAR + CONTENT + RIGHT PANEL)
-      ===================================================== */}
-      <div style={styles.layout}>
+      {!user ? (
+        <Login onLogin={setUser} />
+      ) : (
 
-        {/* =====================================================
-          📌 SIDEBAR (PRIMARY NAVIGATION)
-        ===================================================== */}
-        <div style={styles.sidebar}>
-
-          <div style={styles.sidebarHeader}>
-            Builder
-          </div>
-
-          {[
-            { key: "smart", label: "Smart Paste" },
-            { key: "setup", label: "Question Setup" },
-            { key: "answers", label: "Answers" },
-            { key: "logic", label: "Logic" },
-            { key: "advanced", label: "Advanced" },
-          ].map((item) => (
-            <div
-              key={item.key}
-              onClick={() => setActivePanel(item.key)}
-              style={{
-                ...styles.sidebarItem,
-                ...(activePanel === item.key
-                  ? styles.sidebarItemActive
-                  : {})
-              }}
-            >
-              {item.label}
-            </div>
-          ))}
-
-        </div>
-
-        {/* =====================================================
-          🧩 CENTER CONTENT (MAIN WORK AREA)
-        ===================================================== */}
-        <div style={styles.contentArea}>
+        <div style={styles.appShell}>
 
           {/* =====================================================
-            🧭 QUESTION NAVIGATION STRIP
+            🔝 TOP BAR (GLOBAL HEADER)
           ===================================================== */}
-          <div style={styles.questionBar}>
+          <div style={styles.topBar}>
+            <div style={styles.topLeft}>
+              <h2 style={styles.appTitle}>Survey Studio</h2>
+            </div>
 
-            <div style={styles.questionTabs}>
-              {questions.map((q, i) => (
+            <div style={styles.topRight}>
+              <span style={styles.userText}>Welcome: {user}</span>
+              <button
+                style={styles.logoutBtn}
+                onClick={() => {
+                  logout();
+                  setUser(null);
+                }}
+              >
+                Logout
+              </button>
+            </div>
+          </div>
+
+          {/* =====================================================
+            🧱 MAIN LAYOUT (SIDEBAR + CONTENT + RIGHT PANEL)
+          ===================================================== */}
+          <div style={styles.layout}>
+
+            {/* =====================================================
+              📌 SIDEBAR (PRIMARY NAVIGATION)
+            ===================================================== */}
+            <div style={styles.sidebar}>
+
+              <div style={styles.sidebarHeader}>
+                Builder
+              </div>
+
+              {[
+                { key: "smart", label: "Smart Paste" },
+                { key: "setup", label: "Question Setup" },
+                { key: "answers", label: "Answers" },
+                { key: "logic", label: "Logic" },
+                { key: "advanced", label: "Advanced" },
+              ].map((item) => (
                 <div
-                  key={i}
+                  key={item.key}
+                  onClick={() => setActivePanel(item.key)}
                   style={{
-                    ...styles.qTab,
-                    ...(i === activeIndex ? styles.qTabActive : {})
-                  }}
-                  onClick={() => {
-                    if (i === activeIndex) return;
-                    setActiveIndex(i);
-                    setActivePreviewLabel(questions[i]?.id);
+                    ...styles.sidebarItem,
+                    ...(activePanel === item.key
+                      ? styles.sidebarItemActive
+                      : {})
                   }}
                 >
-                  <span>{q.id || `Q${i + 1}`}</span>
-
-                  <div style={styles.qTabActions}>
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        duplicateQuestion(i);
-                      }}
-                    >
-                      ⧉
-                    </button>
-
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        deleteQuestion(i);
-                      }}
-                    >
-                      ✕
-                    </button>
-                  </div>
+                  {item.label}
                 </div>
               ))}
+
             </div>
 
-            <button
-              style={styles.addQBtn}
-              onClick={addQuestion}
-            >
-              + Add Question
-            </button>
-
-          </div>
-
-          {/* =====================================================
-            📦 PANEL CONTENT (CHANGES WITH SIDEBAR)
-          ===================================================== */}
-          <div style={styles.panelContent}>
-
             {/* =====================================================
-              ⚡ SMART PASTE
+              🧩 CENTER CONTENT (MAIN WORK AREA)
             ===================================================== */}
-            {activePanel === "smart" && (
-              <div style={styles.card}>
-                <SectionHeader
-                  title="Smart Paste"
-                  subtitle="Paste questionnaire block and auto-fill"
-                />
+            <div style={styles.contentArea}>
 
-                <textarea
-                  placeholder={`Paste here...
+              {/* =====================================================
+                🧭 QUESTION NAVIGATION STRIP
+              ===================================================== */}
+              <div style={styles.questionBar}>
 
-Question Type: Single Select / Radio
-Label #@ Q1 Comp Size
-Title #@ How many employees work at your company?
-Options:
-1. Option A
-2. Option B`}
-                  value={form.smartPasteText || ""}
-                  onChange={(e) =>
-                    handleChange("smartPasteText", e.target.value)
-                  }
-                  style={{
-                    ...styles.optionTextarea,
-                    minHeight: "220px",
-                    border: "2px dashed #c7d2fe",
-                    background: "#f8fafc"
-                  }}
-                />
+                <div style={styles.questionTabs}>
+                  {questions.map((q, i) => (
+                    <div
+                      key={i}
+                      style={{
+                        ...styles.qTab,
+                        ...(i === activeIndex ? styles.qTabActive : {})
+                      }}
+                      onClick={() => {
+                        if (i === activeIndex) return;
+                        setActiveIndex(i);
+                        setActivePreviewLabel(questions[i]?.id);
+                      }}
+                    >
+                      <span>{q.id || `Q${i + 1}`}</span>
 
-                <button
-                  style={styles.smartPasteBtn}
-                  onClick={() => handleSmartPaste(form.smartPasteText)}
-                >
-                  ⚡ Smart Paste
-                </button>
-              </div>
-            )}
-
-            {/* =====================================================
-              🧩 QUESTION SETUP
-            ===================================================== */}
-            {activePanel === "setup" && (
-              <div style={styles.cardPrimary}>
-                <SectionHeader
-                  title="Question Setup"
-                  subtitle="Define core question structure"
-                />
-
-                <div style={styles.grid2}>
-                  <Input
-                    label="Question ID"
-                    value={form.id}
-                    onChange={(v) => handleChange("id", v)}
-                    placeholder="e.g. q1_brand_awareness"
-                  />
-
-                  <Select
-                    label="Question Type"
-                    value={form.type}
-                    onChange={(v) => handleChange("type", v)}
-                    options={[
-                      { label: "Intro / HTML", value: "html" },
-                      { label: "Radio (Single Select)", value: "radio" },
-                      { label: "Checkbox (Multi Select)", value: "checkbox" },
-                      { label: "Grid - Radio", value: "radio_grid" },
-                      { label: "Grid - Checkbox", value: "checkbox_grid" },
-                      { label: "Card - Radio", value: "card_radio" },
-                      { label: "Card - Checkbox", value: "card_checkbox" },
-                      { label: "Number - Single", value: "number_single" },
-                      { label: "Number - Multiple", value: "number_multi" },
-                      { label: "Decimal - Multiple", value: "float_multi" },
-                      { label: "Text - Single", value: "text_single" },
-                      { label: "Text - Multiple", value: "text_multi" },
-                      { label: "Textarea - Single", value: "textarea_single" },
-                      { label: "Textarea - Multiple", value: "textarea_multi" },
-                      { label: "Ranking", value: "ranking" },
-                      { label: "Autosum", value: "autosum" },
-                    ]}
-                  />
-                </div>
-
-                <RichTextEditor
-                  label="Question Title"
-                  value={form.title}
-                  onChange={(v) => handleChange("title", v)}
-                  placeholder="Format using toolbar"
-                />
-
-                <RichTextEditor
-                  label="Description"
-                  value={form.description}
-                  onChange={(v) => handleChange("description", v)}
-                  placeholder="Add formatting like bold, italic etc."
-                />
-
-                <Textarea
-                  label="Internal Comment (XML)"
-                  value={form.comment}
-                  onChange={(v) => handleChange("comment", v)}
-                  placeholder="Internal notes, logic hints, client instructions"
-                />
-              </div>
-            )}
-            {/* =====================================================
-              🧾 ANSWERS (MAIN BLOCK)
-            ===================================================== */}
-            {activePanel === "answers" && (
-              <>
-
-                {/* =====================================================
-                  🧾 ANSWER INPUT SECTION
-                ===================================================== */}
-                <div style={styles.card}>
-                  <SectionHeader
-                    title="Answer Input"
-                    subtitle="Define answer structure"
-                  />
-
-                  {/* ================= HTML ================= */}
-                  {t === "html" && (
-                    <InfoBox text="Intro / informational block (no answers required)" />
-                  )}
-
-                  {/* ================= RADIO / CHECKBOX ================= */}
-                  {["radio", "checkbox"].includes(t) && (
-                    <Textarea
-                      label="Options"
-                      value={form.optionsText}
-                      onChange={(v) =>
-                        handleChange("optionsText", v)
-                      }
-                      placeholder={`1. Option A
-2. Option B
-3. Option C`}
-                    />
-                  )}
-
-                  {/* ================= GRID + CARD ================= */}
-                  {[
-                    "radio_grid",
-                    "checkbox_grid",
-                    "card_radio",
-                    "card_checkbox",
-                  ].includes(t) && (
-                    <>
-                      <Textarea
-                        label="Columns"
-                        value={form.columnsText}
-                        onChange={(v) =>
-                          handleChange("columnsText", v)
-                        }
-                        placeholder={`1. Strongly Agree
-2. Agree
-3. Neutral`}
-                      />
-
-                      <Textarea
-                        label="Rows"
-                        value={form.rowsText}
-                        onChange={(v) =>
-                          handleChange("rowsText", v)
-                        }
-                        placeholder={`1. Brand Trust
-2. Product Quality`}
-                      />
-                    </>
-                  )}
-
-                  {/* ================= NUMBER SINGLE ================= */}
-                  {t === "number_single" && (
-                    <>
-                      <Input
-                        label="Value"
-                        value={form.optionsText}
-                        onChange={(v) =>
-                          handleChange("optionsText", v)
-                        }
-                        placeholder="Enter number"
-                      />
-
-                      <div style={styles.grid2}>
-                        <Input
-                          label="Min"
-                          value={form.rangeMin}
-                          onChange={(v) =>
-                            handleChange("rangeMin", v)
-                          }
-                        />
-
-                        <Input
-                          label="Max"
-                          value={form.rangeMax}
-                          onChange={(v) =>
-                            handleChange("rangeMax", v)
-                          }
-                        />
-                      </div>
-                    </>
-                  )}
-
-                  {/* ================= NUMBER MULTI ================= */}
-                  {["number_multi", "float_multi"].includes(t) && (
-                    <>
-                      <Textarea
-                        label="Rows"
-                        value={form.rowsText}
-                        onChange={(v) =>
-                          handleChange("rowsText", v)
-                        }
-                        placeholder={`1. Category A
-2. Category B`}
-                      />
-
-                      <div style={styles.grid2}>
-                        <Input
-                          label="Min"
-                          value={form.rangeMin}
-                          onChange={(v) =>
-                            handleChange("rangeMin", v)
-                          }
-                        />
-
-                        <Input
-                          label="Max"
-                          value={form.rangeMax}
-                          onChange={(v) =>
-                            handleChange("rangeMax", v)
-                          }
-                        />
-                      </div>
-                    </>
-                  )}
-
-                  {/* ================= TEXT ================= */}
-                  {t === "text_single" && (
-                    <InfoBox text="User will enter a single-line response." />
-                  )}
-
-                  {t === "text_multi" && (
-                    <Textarea
-                      label="Fields"
-                      value={form.rowsText}
-                      onChange={(v) =>
-                        handleChange("rowsText", v)
-                      }
-                      placeholder={`1. Field 1
-2. Field 2`}
-                    />
-                  )}
-
-                  {t === "textarea_single" && (
-                    <InfoBox text="User will enter a long-form response." />
-                  )}
-
-                  {t === "textarea_multi" && (
-                    <Textarea
-                      label="Fields"
-                      value={form.rowsText}
-                      onChange={(v) =>
-                        handleChange("rowsText", v)
-                      }
-                      placeholder={`1. Field 1
-2. Field 2`}
-                    />
-                  )}
-
-                  {/* ================= RANKING ================= */}
-                  {t === "ranking" && (
-                    <Textarea
-                      label="Ranking Options"
-                      value={form.optionsText}
-                      onChange={(v) => handleChange("optionsText", v)}
-                      placeholder={`1. Feature 1
-2. Feature 2
-3. Feature 3`}
-                    />
-                  )}
-
-                  {/* ================= AUTOSUM ================= */}
-                  {t === "autosum" && (
-                    <div>
-                      <div style={styles.autoHeader}>
-                        <span>Autosum Rows</span>
+                      <div style={styles.qTabActions}>
                         <button
-                          style={styles.addBtn}
-                          onClick={addAutosumRow}
-                        >
-                          + Add Row
-                        </button>
-                      </div>
-
-                      {form.autosumRows.map((row, i) => (
-                        <div key={i} style={styles.autoCard}>
-                          <div style={styles.autoIndex}>
-                            {i + 1}
-                          </div>
-
-                          <div style={{ flex: 1 }}>
-                            <Input
-                              value={row.title}
-                              onChange={(v) =>
-                                handleAutosumChange(i, "title", v)
-                              }
-                              placeholder="Row Title"
-                            />
-
-                            <Input
-                              value={row.desc}
-                              onChange={(v) =>
-                                handleAutosumChange(i, "desc", v)
-                              }
-                              placeholder="Description (optional)"
-                            />
-                          </div>
-
-                          <button
-                            style={styles.deleteBtn}
-                            onClick={() => removeAutosumRow(i)}
-                          >
-                            ✕
-                          </button>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-
-                </div>
-
-                {/* =====================================================
-                  🔧 OPTION EDITOR (SMART SECTION)
-                ===================================================== */}
-                {(
-                  ["radio","checkbox","ranking"].includes(form.type)
-                    ? form.parsedOptions?.length > 0
-                    : form.parsedRows?.length > 0
-                ) && (
-                  <div style={styles.card}>
-                    <SectionHeader
-                      title="Option Editor"
-                      subtitle="Fine-tune labels, values & behavior"
-                    />
-
-                    {(
-                      ["radio","checkbox","ranking"].includes(form.type)
-                        ? form.parsedOptions
-                        : form.parsedRows
-                    ).map((opt, i) => {
-
-                      const isOptionType =
-                        ["radio","checkbox","ranking"].includes(form.type);
-
-                      const isLocked = [97, 98, 99].includes(opt.value);
-
-                      const updateField = (field, value) => {
-                        const updated = isOptionType
-                          ? [...form.parsedOptions]
-                          : [...form.parsedRows];
-
-                        updated[i] = enforceOptionRules({
-                          ...updated[i],
-                          [field]: field === "value" ? Number(value) : value
-                        });
-
-                        if (field === "value" || field === "text") {
-                          updated[i] = enforceOptionRules(updated[i]);
-                        }
-
-                        handleChange(
-                          isOptionType ? "parsedOptions" : "parsedRows",
-                          updated
-                        );
-                      };
-
-                      return (
-                        <div
-                          key={i}
-                          style={{
-                            ...styles.optionRow,
-                            background: isLocked ? "#fef3c7" : "#f9fafb"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            duplicateQuestion(i);
                           }}
                         >
+                          ⧉
+                        </button>
 
-                          {/* VALUE */}
-                          <input
-                            type="number"
-                            value={opt.value}
-                            onChange={(e) =>
-                              updateField("value", Number(e.target.value))
-                            }
-                            style={styles.smallInput}
-                          />
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            deleteQuestion(i);
+                          }}
+                        >
+                          ✕
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
 
-                          {/* TEXT */}
-                          <div style={{ flex: 1 }}>
-                            <RichTextEditor
-                              label={`opt-${i}`}
-                              value={opt.text}
-                              onChange={(v) => updateField("text", v)}
-                            />
-                          </div>
+                <button
+                  style={styles.addQBtn}
+                  onClick={addQuestion}
+                >
+                  + Add Question
+                </button>
 
-                          {/* FLAGS */}
-                          <div style={styles.optionRightInline}>
+              </div>
 
-                            <CheckInline
-                              label="Anchor"
-                              checked={opt.anchor || false}
-                              onChange={(v) => updateField("anchor", v)}
-                            />
+              {/* =====================================================
+                📦 PANEL CONTENT (CHANGES WITH SIDEBAR)
+              ===================================================== */}
+              <div style={styles.panelContent}>
 
-                            <CheckInline
-                              label="Exclusive"
-                              checked={opt.exclusive || false}
-                              onChange={(v) => updateField("exclusive", v)}
-                            />
+                {/* =====================================================
+                  ⚡ SMART PASTE
+                ===================================================== */}
+                {activePanel === "smart" && (
+                  <div style={styles.card}>
+                    <SectionHeader
+                      title="Smart Paste"
+                      subtitle="Paste questionnaire block and auto-fill"
+                    />
 
-                            <CheckInline
-                              label="Other"
-                              checked={opt.other || false}
-                              onChange={(v) => updateField("other", v)}
-                            />
+                    <textarea
+                      placeholder={`Paste here...
 
-                            <CheckInline
-                              label="Terminate"
-                              checked={opt.terminate || false}
-                              onChange={(v) => updateField("terminate", v)}
-                            />
+  Question Type: Single Select / Radio
+  Label #@ Q1 Comp Size
+  Title #@ How many employees work at your company?
+  Options:
+  1. Option A
+  2. Option B`}
+                      value={form.smartPasteText || ""}
+                      onChange={(e) =>
+                        handleChange("smartPasteText", e.target.value)
+                      }
+                      style={{
+                        ...styles.optionTextarea,
+                        minHeight: "220px",
+                        border: "2px dashed #c7d2fe",
+                        background: "#f8fafc"
+                      }}
+                    />
 
-                          </div>
-
-                        </div>
-                      );
-                    })}
+                    <button
+                      style={styles.smartPasteBtn}
+                      onClick={() => handleSmartPaste(form.smartPasteText)}
+                    >
+                      ⚡ Smart Paste
+                    </button>
                   </div>
                 )}
 
-              </>
-            )}
-
-            {/* =====================================================
-              🧠 LOGIC TAB
-            ===================================================== */}
-            {activePanel === "logic" && (
-              <div style={styles.card}>
-                <SectionHeader
-                  title="Logic Builder"
-                  subtitle="Display, skip & piping logic"
-                />
-
-                <div style={styles.logicContainer}>
-
-                  <div style={styles.logicBlock}>
-                    <h4 style={styles.logicTitle}>Display Logic</h4>
-                    <p style={styles.logicDesc}>
-                      Control when a question is shown based on previous answers.
-                    </p>
-                  </div>
-
-                  <div style={styles.logicBlock}>
-                    <h4 style={styles.logicTitle}>Skip Logic</h4>
-                    <p style={styles.logicDesc}>
-                      Redirect respondents to another question based on conditions.
-                    </p>
-                  </div>
-
-                  <div style={styles.logicBlock}>
-                    <h4 style={styles.logicTitle}>Answer Piping</h4>
-                    <p style={styles.logicDesc}>
-                      Inject previous answers into titles, descriptions or options.
-                    </p>
-                  </div>
-
-                  <div style={styles.logicPlaceholder}>
-                    Logic builder UI will be added here.
-                  </div>
-
-                </div>
-              </div>
-            )}
-
-            {/* =====================================================
-              ⚙️ ADVANCED SETTINGS (RESTRUCTURED)
-            ===================================================== */}
-            {activePanel === "advanced" && (
-              <div style={styles.advancedWrap}>
-
                 {/* =====================================================
-                  ⚙️ CORE SETTINGS
+                  🧩 QUESTION SETUP
                 ===================================================== */}
-                <div style={styles.card}>
-                  <SectionHeader
-                    title="Core Settings"
-                    subtitle="Basic behavior & toggles"
-                  />
-
-                  <div style={styles.settingGroup}>
-
-                    <label style={styles.checkbox}>
-                      <input
-                        type="checkbox"
-                        checked={form.randomize.all}
-                        onChange={(e) =>
-                          handleChange("randomize", {
-                            rows: e.target.checked,
-                            columns: e.target.checked,
-                            all: e.target.checked,
-                          })
-                        }
-                      />
-                      Randomize All
-                    </label>
-
-                    <div style={styles.inlineChecks}>
-                      <Check
-                        label="Rows"
-                        checked={form.randomize.rows}
-                        onChange={(v) =>
-                          handleChange("randomize", {
-                            ...form.randomize,
-                            rows: v,
-                            all: false,
-                          })
-                        }
-                      />
-                      <Check
-                        label="Columns"
-                        checked={form.randomize.columns}
-                        onChange={(v) =>
-                          handleChange("randomize", {
-                            ...form.randomize,
-                            columns: v,
-                            all: false,
-                          })
-                        }
-                      />
-                    </div>
-
-                  </div>
-
-                  <Check
-                    label="Exclusive Option (None of the above)"
-                    checked={form.exclusive}
-                    onChange={(v) => handleChange("exclusive", v)}
-                  />
-
-                </div>
-
-                {/* =====================================================
-                  🧠 VALIDATION & RULES
-                ===================================================== */}
-                <div style={styles.card}>
-                  <SectionHeader
-                    title="Validation & Rules"
-                    subtitle="Control response constraints"
-                  />
-
-                  <div style={styles.grid2}>
-                    <Input
-                      label="Minimum Required"
-                      value={form.config.atleast}
-                      onChange={(v) =>
-                        handleChange("config", { ...form.config, atleast: v })
-                      }
-                    />
-
-                    <Input
-                      label="Maximum Allowed"
-                      value={form.config.atmost}
-                      onChange={(v) =>
-                        handleChange("config", { ...form.config, atmost: v })
-                      }
-                    />
-                  </div>
-
-                  <div style={styles.grid2}>
-                    <Input
-                      label="Exact Selection"
-                      value={form.config.exact}
-                      onChange={(v) =>
-                        handleChange("config", { ...form.config, exact: v })
-                      }
-                    />
-
-                    <Input
-                      label="Unique Constraint"
-                      value={form.config.unique}
-                      onChange={(v) =>
-                        handleChange("config", { ...form.config, unique: v })
-                      }
-                    />
-                  </div>
-
-                  <Input
-                    label="Verify Rule"
-                    value={form.config.verify}
-                    onChange={(v) =>
-                      handleChange("config", { ...form.config, verify: v })
-                    }
-                    placeholder="range(0,100)"
-                  />
-
-                </div>
-
-                {/* =====================================================
-                  📊 DISPLAY SETTINGS
-                ===================================================== */}
-                <div style={styles.card}>
-                  <SectionHeader
-                    title="Display Settings"
-                    subtitle="UI behavior & layout"
-                  />
-
-                  <div style={styles.grid2}>
-                    <Input
-                      label="Row Legend"
-                      value={form.config.rowLegend}
-                      onChange={(v) =>
-                        handleChange("config", { ...form.config, rowLegend: v })
-                      }
-                    />
-
-                    <Input
-                      label="Prefix (₹ / $)"
-                      value={form.config.preText}
-                      onChange={(v) =>
-                        handleChange("config", { ...form.config, preText: v })
-                      }
-                    />
-                  </div>
-
-                  <div style={styles.grid2}>
-                    <Select
-                      label="Alignment"
-                      value={form.config.alignment}
-                      onChange={(v) =>
-                        handleChange("config", { ...form.config, alignment: v })
-                      }
-                      options={[
-                        { label: "Right", value: "right" },
-                        { label: "Left", value: "left" },
-                        { label: "Inline", value: "inline" },
-                      ]}
-                    />
-
-                    <Select
-                      label="Input Size"
-                      value={form.config.inputSize}
-                      onChange={(v) =>
-                        handleChange("config", { ...form.config, inputSize: v })
-                      }
-                      options={[
-                        { label: "Small", value: "small" },
-                        { label: "Medium", value: "medium" },
-                        { label: "Large", value: "large" },
-                      ]}
-                    />
-                  </div>
-
-                  <Input
-                    label="Placeholder"
-                    value={form.config.placeholder}
-                    onChange={(v) =>
-                      handleChange("config", { ...form.config, placeholder: v })
-                    }
-                  />
-
-                </div>
-
-                {/* =====================================================
-                  ⚡ BEHAVIOR SETTINGS
-                ===================================================== */}
-                <div style={styles.card}>
-                  <SectionHeader
-                    title="Behavior Settings"
-                    subtitle="Interaction flow control"
-                  />
-
-                  <Check
-                    label="Auto Advance"
-                    checked={form.config.autoAdvance}
-                    onChange={(v) =>
-                      handleChange("config", { ...form.config, autoAdvance: v })
-                    }
-                  />
-
-                  <Check
-                    label="Disable Instead of Hide"
-                    checked={form.config.disableInsteadOfHide}
-                    onChange={(v) =>
-                      handleChange("config", { ...form.config, disableInsteadOfHide: v })
-                    }
-                  />
-
-                </div>
-
-                {/* =====================================================
-                  🔢 AUTOSUM ADVANCED (CONDITIONAL)
-                ===================================================== */}
-                {t === "autosum" && (
-                  <div style={styles.card}>
+                {activePanel === "setup" && (
+                  <div style={styles.cardPrimary}>
                     <SectionHeader
-                      title="Autosum Advanced"
-                      subtitle="Control total logic & enforcement"
+                      title="Question Setup"
+                      subtitle="Define core question structure"
                     />
 
                     <div style={styles.grid2}>
                       <Input
-                        label="Total Amount"
-                        value={form.config.amount}
+                        label="Question ID"
+                        value={form.id}
+                        onChange={(v) => handleChange("id", v)}
+                        placeholder="e.g. q1_brand_awareness"
+                      />
+
+                      <Select
+                        label="Question Type"
+                        value={form.type}
+                        onChange={(v) => handleChange("type", v)}
+                        options={[
+                          { label: "Intro / HTML", value: "html" },
+                          { label: "Radio (Single Select)", value: "radio" },
+                          { label: "Checkbox (Multi Select)", value: "checkbox" },
+                          { label: "Grid - Radio", value: "radio_grid" },
+                          { label: "Grid - Checkbox", value: "checkbox_grid" },
+                          { label: "Card - Radio", value: "card_radio" },
+                          { label: "Card - Checkbox", value: "card_checkbox" },
+                          { label: "Number - Single", value: "number_single" },
+                          { label: "Number - Multiple", value: "number_multi" },
+                          { label: "Decimal - Multiple", value: "float_multi" },
+                          { label: "Text - Single", value: "text_single" },
+                          { label: "Text - Multiple", value: "text_multi" },
+                          { label: "Textarea - Single", value: "textarea_single" },
+                          { label: "Textarea - Multiple", value: "textarea_multi" },
+                          { label: "Ranking", value: "ranking" },
+                          { label: "Autosum", value: "autosum" },
+                        ]}
+                      />
+                    </div>
+
+                    <RichTextEditor
+                      label="Question Title"
+                      value={form.title}
+                      onChange={(v) => handleChange("title", v)}
+                      placeholder="Format using toolbar"
+                    />
+
+                    <RichTextEditor
+                      label="Description"
+                      value={form.description}
+                      onChange={(v) => handleChange("description", v)}
+                      placeholder="Add formatting like bold, italic etc."
+                    />
+
+                    <Textarea
+                      label="Internal Comment (XML)"
+                      value={form.comment}
+                      onChange={(v) => handleChange("comment", v)}
+                      placeholder="Internal notes, logic hints, client instructions"
+                    />
+                  </div>
+                )}
+                {/* =====================================================
+                  🧾 ANSWERS (MAIN BLOCK)
+                ===================================================== */}
+                {activePanel === "answers" && (
+                  <>
+
+                    {/* =====================================================
+                      🧾 ANSWER INPUT SECTION
+                    ===================================================== */}
+                    <div style={styles.card}>
+                      <SectionHeader
+                        title="Answer Input"
+                        subtitle="Define answer structure"
+                      />
+
+                      {/* ================= HTML ================= */}
+                      {t === "html" && (
+                        <InfoBox text="Intro / informational block (no answers required)" />
+                      )}
+
+                      {/* ================= RADIO / CHECKBOX ================= */}
+                      {["radio", "checkbox"].includes(t) && (
+                        <Textarea
+                          label="Options"
+                          value={form.optionsText}
+                          onChange={(v) =>
+                            handleChange("optionsText", v)
+                          }
+                          placeholder={`1. Option A
+  2. Option B
+  3. Option C`}
+                        />
+                      )}
+
+                      {/* ================= GRID + CARD ================= */}
+                      {[
+                        "radio_grid",
+                        "checkbox_grid",
+                        "card_radio",
+                        "card_checkbox",
+                      ].includes(t) && (
+                        <>
+                          <Textarea
+                            label="Columns"
+                            value={form.columnsText}
+                            onChange={(v) =>
+                              handleChange("columnsText", v)
+                            }
+                            placeholder={`1. Strongly Agree
+  2. Agree
+  3. Neutral`}
+                          />
+
+                          <Textarea
+                            label="Rows"
+                            value={form.rowsText}
+                            onChange={(v) =>
+                              handleChange("rowsText", v)
+                            }
+                            placeholder={`1. Brand Trust
+  2. Product Quality`}
+                          />
+                        </>
+                      )}
+
+                      {/* ================= NUMBER SINGLE ================= */}
+                      {t === "number_single" && (
+                        <>
+                          <Input
+                            label="Value"
+                            value={form.optionsText}
+                            onChange={(v) =>
+                              handleChange("optionsText", v)
+                            }
+                            placeholder="Enter number"
+                          />
+
+                          <div style={styles.grid2}>
+                            <Input
+                              label="Min"
+                              value={form.rangeMin}
+                              onChange={(v) =>
+                                handleChange("rangeMin", v)
+                              }
+                            />
+
+                            <Input
+                              label="Max"
+                              value={form.rangeMax}
+                              onChange={(v) =>
+                                handleChange("rangeMax", v)
+                              }
+                            />
+                          </div>
+                        </>
+                      )}
+
+                      {/* ================= NUMBER MULTI ================= */}
+                      {["number_multi", "float_multi"].includes(t) && (
+                        <>
+                          <Textarea
+                            label="Rows"
+                            value={form.rowsText}
+                            onChange={(v) =>
+                              handleChange("rowsText", v)
+                            }
+                            placeholder={`1. Category A
+  2. Category B`}
+                          />
+
+                          <div style={styles.grid2}>
+                            <Input
+                              label="Min"
+                              value={form.rangeMin}
+                              onChange={(v) =>
+                                handleChange("rangeMin", v)
+                              }
+                            />
+
+                            <Input
+                              label="Max"
+                              value={form.rangeMax}
+                              onChange={(v) =>
+                                handleChange("rangeMax", v)
+                              }
+                            />
+                          </div>
+                        </>
+                      )}
+
+                      {/* ================= TEXT ================= */}
+                      {t === "text_single" && (
+                        <InfoBox text="User will enter a single-line response." />
+                      )}
+
+                      {t === "text_multi" && (
+                        <Textarea
+                          label="Fields"
+                          value={form.rowsText}
+                          onChange={(v) =>
+                            handleChange("rowsText", v)
+                          }
+                          placeholder={`1. Field 1
+  2. Field 2`}
+                        />
+                      )}
+
+                      {t === "textarea_single" && (
+                        <InfoBox text="User will enter a long-form response." />
+                      )}
+
+                      {t === "textarea_multi" && (
+                        <Textarea
+                          label="Fields"
+                          value={form.rowsText}
+                          onChange={(v) =>
+                            handleChange("rowsText", v)
+                          }
+                          placeholder={`1. Field 1
+  2. Field 2`}
+                        />
+                      )}
+
+                      {/* ================= RANKING ================= */}
+                      {t === "ranking" && (
+                        <Textarea
+                          label="Ranking Options"
+                          value={form.optionsText}
+                          onChange={(v) => handleChange("optionsText", v)}
+                          placeholder={`1. Feature 1
+  2. Feature 2
+  3. Feature 3`}
+                        />
+                      )}
+
+                      {/* ================= AUTOSUM ================= */}
+                      {t === "autosum" && (
+                        <div>
+                          <div style={styles.autoHeader}>
+                            <span>Autosum Rows</span>
+                            <button
+                              style={styles.addBtn}
+                              onClick={addAutosumRow}
+                            >
+                              + Add Row
+                            </button>
+                          </div>
+
+                          {form.autosumRows.map((row, i) => (
+                            <div key={i} style={styles.autoCard}>
+                              <div style={styles.autoIndex}>
+                                {i + 1}
+                              </div>
+
+                              <div style={{ flex: 1 }}>
+                                <Input
+                                  value={row.title}
+                                  onChange={(v) =>
+                                    handleAutosumChange(i, "title", v)
+                                  }
+                                  placeholder="Row Title"
+                                />
+
+                                <Input
+                                  value={row.desc}
+                                  onChange={(v) =>
+                                    handleAutosumChange(i, "desc", v)
+                                  }
+                                  placeholder="Description (optional)"
+                                />
+                              </div>
+
+                              <button
+                                style={styles.deleteBtn}
+                                onClick={() => removeAutosumRow(i)}
+                              >
+                                ✕
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+
+                    </div>
+
+                    {/* =====================================================
+                      🔧 OPTION EDITOR (SMART SECTION)
+                    ===================================================== */}
+                    {(
+                      ["radio","checkbox","ranking"].includes(form.type)
+                        ? form.parsedOptions?.length > 0
+                        : form.parsedRows?.length > 0
+                    ) && (
+                      <div style={styles.card}>
+                        <SectionHeader
+                          title="Option Editor"
+                          subtitle="Fine-tune labels, values & behavior"
+                        />
+
+                        {(
+                          ["radio","checkbox","ranking"].includes(form.type)
+                            ? form.parsedOptions
+                            : form.parsedRows
+                        ).map((opt, i) => {
+
+                          const isOptionType =
+                            ["radio","checkbox","ranking"].includes(form.type);
+
+                          const isLocked = [97, 98, 99].includes(opt.value);
+
+                          const updateField = (field, value) => {
+                            const updated = isOptionType
+                              ? [...form.parsedOptions]
+                              : [...form.parsedRows];
+
+                            updated[i] = enforceOptionRules({
+                              ...updated[i],
+                              [field]: field === "value" ? Number(value) : value
+                            });
+
+                            if (field === "value" || field === "text") {
+                              updated[i] = enforceOptionRules(updated[i]);
+                            }
+
+                            handleChange(
+                              isOptionType ? "parsedOptions" : "parsedRows",
+                              updated
+                            );
+                          };
+
+                          return (
+                            <div
+                              key={i}
+                              style={{
+                                ...styles.optionRow,
+                                background: isLocked ? "#fef3c7" : "#f9fafb"
+                              }}
+                            >
+
+                              {/* VALUE */}
+                              <input
+                                type="number"
+                                value={opt.value}
+                                onChange={(e) =>
+                                  updateField("value", Number(e.target.value))
+                                }
+                                style={styles.smallInput}
+                              />
+
+                              {/* TEXT */}
+                              <div style={{ flex: 1 }}>
+                                <RichTextEditor
+                                  label={`opt-${i}`}
+                                  value={opt.text}
+                                  onChange={(v) => updateField("text", v)}
+                                />
+                              </div>
+
+                              {/* FLAGS */}
+                              <div style={styles.optionRightInline}>
+
+                                <CheckInline
+                                  label="Anchor"
+                                  checked={opt.anchor || false}
+                                  onChange={(v) => updateField("anchor", v)}
+                                />
+
+                                <CheckInline
+                                  label="Exclusive"
+                                  checked={opt.exclusive || false}
+                                  onChange={(v) => updateField("exclusive", v)}
+                                />
+
+                                <CheckInline
+                                  label="Other"
+                                  checked={opt.other || false}
+                                  onChange={(v) => updateField("other", v)}
+                                />
+
+                                <CheckInline
+                                  label="Terminate"
+                                  checked={opt.terminate || false}
+                                  onChange={(v) => updateField("terminate", v)}
+                                />
+
+                              </div>
+
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+
+                  </>
+                )}
+
+                {/* =====================================================
+                  🧠 LOGIC TAB
+                ===================================================== */}
+                {activePanel === "logic" && (
+                  <div style={styles.card}>
+                    <SectionHeader
+                      title="Logic Builder"
+                      subtitle="Display, skip & piping logic"
+                    />
+
+                    <div style={styles.logicContainer}>
+
+                      <div style={styles.logicBlock}>
+                        <h4 style={styles.logicTitle}>Display Logic</h4>
+                        <p style={styles.logicDesc}>
+                          Control when a question is shown based on previous answers.
+                        </p>
+                      </div>
+
+                      <div style={styles.logicBlock}>
+                        <h4 style={styles.logicTitle}>Skip Logic</h4>
+                        <p style={styles.logicDesc}>
+                          Redirect respondents to another question based on conditions.
+                        </p>
+                      </div>
+
+                      <div style={styles.logicBlock}>
+                        <h4 style={styles.logicTitle}>Answer Piping</h4>
+                        <p style={styles.logicDesc}>
+                          Inject previous answers into titles, descriptions or options.
+                        </p>
+                      </div>
+
+                      <div style={styles.logicPlaceholder}>
+                        Logic builder UI will be added here.
+                      </div>
+
+                    </div>
+                  </div>
+                )}
+
+                {/* =====================================================
+                  ⚙️ ADVANCED SETTINGS (RESTRUCTURED)
+                ===================================================== */}
+                {activePanel === "advanced" && (
+                  <div style={styles.advancedWrap}>
+
+                    {/* =====================================================
+                      ⚙️ CORE SETTINGS
+                    ===================================================== */}
+                    <div style={styles.card}>
+                      <SectionHeader
+                        title="Core Settings"
+                        subtitle="Basic behavior & toggles"
+                      />
+
+                      <div style={styles.settingGroup}>
+
+                        <label style={styles.checkbox}>
+                          <input
+                            type="checkbox"
+                            checked={form.randomize.all}
+                            onChange={(e) =>
+                              handleChange("randomize", {
+                                rows: e.target.checked,
+                                columns: e.target.checked,
+                                all: e.target.checked,
+                              })
+                            }
+                          />
+                          Randomize All
+                        </label>
+
+                        <div style={styles.inlineChecks}>
+                          <Check
+                            label="Rows"
+                            checked={form.randomize.rows}
+                            onChange={(v) =>
+                              handleChange("randomize", {
+                                ...form.randomize,
+                                rows: v,
+                                all: false,
+                              })
+                            }
+                          />
+                          <Check
+                            label="Columns"
+                            checked={form.randomize.columns}
+                            onChange={(v) =>
+                              handleChange("randomize", {
+                                ...form.randomize,
+                                columns: v,
+                                all: false,
+                              })
+                            }
+                          />
+                        </div>
+
+                      </div>
+
+                      <Check
+                        label="Exclusive Option (None of the above)"
+                        checked={form.exclusive}
+                        onChange={(v) => handleChange("exclusive", v)}
+                      />
+
+                    </div>
+
+                    {/* =====================================================
+                      🧠 VALIDATION & RULES
+                    ===================================================== */}
+                    <div style={styles.card}>
+                      <SectionHeader
+                        title="Validation & Rules"
+                        subtitle="Control response constraints"
+                      />
+
+                      <div style={styles.grid2}>
+                        <Input
+                          label="Minimum Required"
+                          value={form.config.atleast}
+                          onChange={(v) =>
+                            handleChange("config", { ...form.config, atleast: v })
+                          }
+                        />
+
+                        <Input
+                          label="Maximum Allowed"
+                          value={form.config.atmost}
+                          onChange={(v) =>
+                            handleChange("config", { ...form.config, atmost: v })
+                          }
+                        />
+                      </div>
+
+                      <div style={styles.grid2}>
+                        <Input
+                          label="Exact Selection"
+                          value={form.config.exact}
+                          onChange={(v) =>
+                            handleChange("config", { ...form.config, exact: v })
+                          }
+                        />
+
+                        <Input
+                          label="Unique Constraint"
+                          value={form.config.unique}
+                          onChange={(v) =>
+                            handleChange("config", { ...form.config, unique: v })
+                          }
+                        />
+                      </div>
+
+                      <Input
+                        label="Verify Rule"
+                        value={form.config.verify}
+                        onChange={(v) =>
+                          handleChange("config", { ...form.config, verify: v })
+                        }
+                        placeholder="range(0,100)"
+                      />
+
+                    </div>
+
+                    {/* =====================================================
+                      📊 DISPLAY SETTINGS
+                    ===================================================== */}
+                    <div style={styles.card}>
+                      <SectionHeader
+                        title="Display Settings"
+                        subtitle="UI behavior & layout"
+                      />
+
+                      <div style={styles.grid2}>
+                        <Input
+                          label="Row Legend"
+                          value={form.config.rowLegend}
+                          onChange={(v) =>
+                            handleChange("config", { ...form.config, rowLegend: v })
+                          }
+                        />
+
+                        <Input
+                          label="Prefix (₹ / $)"
+                          value={form.config.preText}
+                          onChange={(v) =>
+                            handleChange("config", { ...form.config, preText: v })
+                          }
+                        />
+                      </div>
+
+                      <div style={styles.grid2}>
+                        <Select
+                          label="Alignment"
+                          value={form.config.alignment}
+                          onChange={(v) =>
+                            handleChange("config", { ...form.config, alignment: v })
+                          }
+                          options={[
+                            { label: "Right", value: "right" },
+                            { label: "Left", value: "left" },
+                            { label: "Inline", value: "inline" },
+                          ]}
+                        />
+
+                        <Select
+                          label="Input Size"
+                          value={form.config.inputSize}
+                          onChange={(v) =>
+                            handleChange("config", { ...form.config, inputSize: v })
+                          }
+                          options={[
+                            { label: "Small", value: "small" },
+                            { label: "Medium", value: "medium" },
+                            { label: "Large", value: "large" },
+                          ]}
+                        />
+                      </div>
+
+                      <Input
+                        label="Placeholder"
+                        value={form.config.placeholder}
+                        onChange={(v) =>
+                          handleChange("config", { ...form.config, placeholder: v })
+                        }
+                      />
+
+                    </div>
+
+                    {/* =====================================================
+                      ⚡ BEHAVIOR SETTINGS
+                    ===================================================== */}
+                    <div style={styles.card}>
+                      <SectionHeader
+                        title="Behavior Settings"
+                        subtitle="Interaction flow control"
+                      />
+
+                      <Check
+                        label="Auto Advance"
+                        checked={form.config.autoAdvance}
+                        onChange={(v) =>
+                          handleChange("config", { ...form.config, autoAdvance: v })
+                        }
+                      />
+
+                      <Check
+                        label="Disable Instead of Hide"
+                        checked={form.config.disableInsteadOfHide}
+                        onChange={(v) =>
+                          handleChange("config", { ...form.config, disableInsteadOfHide: v })
+                        }
+                      />
+
+                    </div>
+
+                    {/* =====================================================
+                      🔢 AUTOSUM ADVANCED (CONDITIONAL)
+                    ===================================================== */}
+                    {t === "autosum" && (
+                      <div style={styles.card}>
+                        <SectionHeader
+                          title="Autosum Advanced"
+                          subtitle="Control total logic & enforcement"
+                        />
+
+                        <div style={styles.grid2}>
+                          <Input
+                            label="Total Amount"
+                            value={form.config.amount}
+                            onChange={(v) =>
+                              handleChange("config", {
+                                ...form.config,
+                                amount: v
+                              })
+                            }
+                          />
+
+                          <Input
+                            label="Tolerance (±)"
+                            value={form.config.tolerance}
+                            onChange={(v) =>
+                              handleChange("config", {
+                                ...form.config,
+                                tolerance: v
+                              })
+                            }
+                          />
+                        </div>
+
+                        <Check
+                          label="Strict Total Enforcement"
+                          checked={form.config.enforceTotal}
+                          onChange={(v) =>
+                            handleChange("config", {
+                              ...form.config,
+                              enforceTotal: v
+                            })
+                          }
+                        />
+
+                        <Check
+                          label="Auto-fill Remaining"
+                          checked={form.config.autoFillRemainder}
+                          onChange={(v) =>
+                            handleChange("config", {
+                              ...form.config,
+                              autoFillRemainder: v
+                            })
+                          }
+                        />
+
+                        <Check
+                          label="Show Running Total"
+                          checked={form.config.showTotal}
+                          onChange={(v) =>
+                            handleChange("config", {
+                              ...form.config,
+                              showTotal: v
+                            })
+                          }
+                        />
+                      </div>
+                    )}
+
+                    {/* =====================================================
+                      🎲 RANDOMIZATION ADVANCED
+                    ===================================================== */}
+                    <div style={styles.card}>
+                      <SectionHeader
+                        title="Randomization Advanced"
+                        subtitle="Fine-tune random behavior"
+                      />
+
+                      <Input
+                        label="Random Subset (N)"
+                        value={form.config.randomizeSubset}
                         onChange={(v) =>
                           handleChange("config", {
                             ...form.config,
-                            amount: v
+                            randomizeSubset: v
                           })
                         }
                       />
 
+                      <div style={styles.inlineChecks}>
+                        <Check
+                          label="Keep First Fixed"
+                          checked={form.config.keepFirstFixed}
+                          onChange={(v) =>
+                            handleChange("config", {
+                              ...form.config,
+                              keepFirstFixed: v
+                            })
+                          }
+                        />
+
+                        <Check
+                          label="Keep Last Fixed"
+                          checked={form.config.keepLastFixed}
+                          onChange={(v) =>
+                            handleChange("config", {
+                              ...form.config,
+                              keepLastFixed: v
+                            })
+                          }
+                        />
+                      </div>
+                    </div>
+
+                    {/* =====================================================
+                      ⭐ SPECIAL OPTIONS
+                    ===================================================== */}
+                    <div style={styles.card}>
+                      <SectionHeader
+                        title="Special Options"
+                        subtitle="Prebuilt survey answer types"
+                      />
+
+                      <div style={styles.inlineChecksWrap}>
+                        <Check
+                          label="Include Other"
+                          checked={form.config.includeOther}
+                          onChange={(v) =>
+                            handleChange("config", {
+                              ...form.config,
+                              includeOther: v
+                            })
+                          }
+                        />
+
+                        <Check
+                          label="Include None"
+                          checked={form.config.includeNone}
+                          onChange={(v) =>
+                            handleChange("config", {
+                              ...form.config,
+                              includeNone: v
+                            })
+                          }
+                        />
+
+                        <Check
+                          label="Include Don't Know"
+                          checked={form.config.includeDK}
+                          onChange={(v) =>
+                            handleChange("config", {
+                              ...form.config,
+                              includeDK: v
+                            })
+                          }
+                        />
+
+                        <Check
+                          label="Include PNA"
+                          checked={form.config.includePNA}
+                          onChange={(v) =>
+                            handleChange("config", {
+                              ...form.config,
+                              includePNA: v
+                            })
+                          }
+                        />
+                      </div>
+                    </div>
+
+                    {/* =====================================================
+                      🧾 DATA OUTPUT CONFIG
+                    ===================================================== */}
+                    <div style={styles.card}>
+                      <SectionHeader
+                        title="Data Output"
+                        subtitle="Export & variable configuration"
+                      />
+
+                      <div style={styles.grid2}>
+                        <Input
+                          label="Variable Name"
+                          value={form.config.variableName}
+                          onChange={(v) =>
+                            handleChange("config", {
+                              ...form.config,
+                              variableName: v
+                            })
+                          }
+                        />
+
+                        <Input
+                          label="Export Label"
+                          value={form.config.exportLabel}
+                          onChange={(v) =>
+                            handleChange("config", {
+                              ...form.config,
+                              exportLabel: v
+                            })
+                          }
+                        />
+                      </div>
+
                       <Input
-                        label="Tolerance (±)"
-                        value={form.config.tolerance}
+                        label="Custom Error Message"
+                        value={form.config.errorMessage}
                         onChange={(v) =>
                           handleChange("config", {
                             ...form.config,
-                            tolerance: v
+                            errorMessage: v
                           })
                         }
                       />
                     </div>
 
-                    <Check
-                      label="Strict Total Enforcement"
-                      checked={form.config.enforceTotal}
-                      onChange={(v) =>
-                        handleChange("config", {
-                          ...form.config,
-                          enforceTotal: v
-                        })
-                      }
-                    />
+                    {/* =====================================================
+                      📊 COLUMN EDITOR (GRID TYPES ONLY)
+                    ===================================================== */}
+                    {form.parsedColumns?.length > 0 && (
+                      <div style={styles.card}>
+                        <SectionHeader
+                          title="Column Editor"
+                          subtitle="Adjust grid column behavior"
+                        />
 
-                    <Check
-                      label="Auto-fill Remaining"
-                      checked={form.config.autoFillRemainder}
-                      onChange={(v) =>
-                        handleChange("config", {
-                          ...form.config,
-                          autoFillRemainder: v
-                        })
-                      }
-                    />
+                        {form.parsedColumns.map((col, i) => (
+                          <div key={i} style={styles.optionRow}>
 
-                    <Check
-                      label="Show Running Total"
-                      checked={form.config.showTotal}
-                      onChange={(v) =>
-                        handleChange("config", {
-                          ...form.config,
-                          showTotal: v
-                        })
-                      }
-                    />
-                  </div>
-                )}
+                            <div style={styles.optionIndex}>
+                              {col.label}
+                            </div>
 
-                {/* =====================================================
-                  🎲 RANDOMIZATION ADVANCED
-                ===================================================== */}
-                <div style={styles.card}>
-                  <SectionHeader
-                    title="Randomization Advanced"
-                    subtitle="Fine-tune random behavior"
-                  />
+                            <div style={{ flex: 1 }}>
+                              <RichTextEditor
+                                label={`col-${i}`}
+                                value={col.text}
+                                onChange={(v) => {
+                                  const updated = [...form.parsedColumns];
+                                  updated[i].text = v;
+                                  handleChange("parsedColumns", updated);
+                                }}
+                              />
+                            </div>
 
-                  <Input
-                    label="Random Subset (N)"
-                    value={form.config.randomizeSubset}
-                    onChange={(v) =>
-                      handleChange("config", {
-                        ...form.config,
-                        randomizeSubset: v
-                      })
-                    }
-                  />
+                            <div style={styles.optionRightInline}>
 
-                  <div style={styles.inlineChecks}>
-                    <Check
-                      label="Keep First Fixed"
-                      checked={form.config.keepFirstFixed}
-                      onChange={(v) =>
-                        handleChange("config", {
-                          ...form.config,
-                          keepFirstFixed: v
-                        })
-                      }
-                    />
+                              <CheckInline
+                                label="Exclusive"
+                                checked={col.exclusive || false}
+                                onChange={(v) => {
+                                  const updated = [...form.parsedColumns];
+                                  updated[i].exclusive = [97, 99].includes(col.value)
+                                    ? v
+                                    : false;
+                                  handleChange("parsedColumns", updated);
+                                }}
+                              />
 
-                    <Check
-                      label="Keep Last Fixed"
-                      checked={form.config.keepLastFixed}
-                      onChange={(v) =>
-                        handleChange("config", {
-                          ...form.config,
-                          keepLastFixed: v
-                        })
-                      }
-                    />
-                  </div>
-                </div>
+                              <CheckInline
+                                label="Anchor"
+                                checked={col.anchor || false}
+                                onChange={(v) => {
+                                  const updated = [...form.parsedColumns];
+                                  updated[i].anchor = v;
+                                  handleChange("parsedColumns", updated);
+                                }}
+                              />
 
-                {/* =====================================================
-                  ⭐ SPECIAL OPTIONS
-                ===================================================== */}
-                <div style={styles.card}>
-                  <SectionHeader
-                    title="Special Options"
-                    subtitle="Prebuilt survey answer types"
-                  />
+                            </div>
 
-                  <div style={styles.inlineChecksWrap}>
-                    <Check
-                      label="Include Other"
-                      checked={form.config.includeOther}
-                      onChange={(v) =>
-                        handleChange("config", {
-                          ...form.config,
-                          includeOther: v
-                        })
-                      }
-                    />
-
-                    <Check
-                      label="Include None"
-                      checked={form.config.includeNone}
-                      onChange={(v) =>
-                        handleChange("config", {
-                          ...form.config,
-                          includeNone: v
-                        })
-                      }
-                    />
-
-                    <Check
-                      label="Include Don't Know"
-                      checked={form.config.includeDK}
-                      onChange={(v) =>
-                        handleChange("config", {
-                          ...form.config,
-                          includeDK: v
-                        })
-                      }
-                    />
-
-                    <Check
-                      label="Include PNA"
-                      checked={form.config.includePNA}
-                      onChange={(v) =>
-                        handleChange("config", {
-                          ...form.config,
-                          includePNA: v
-                        })
-                      }
-                    />
-                  </div>
-                </div>
-
-                {/* =====================================================
-                  🧾 DATA OUTPUT CONFIG
-                ===================================================== */}
-                <div style={styles.card}>
-                  <SectionHeader
-                    title="Data Output"
-                    subtitle="Export & variable configuration"
-                  />
-
-                  <div style={styles.grid2}>
-                    <Input
-                      label="Variable Name"
-                      value={form.config.variableName}
-                      onChange={(v) =>
-                        handleChange("config", {
-                          ...form.config,
-                          variableName: v
-                        })
-                      }
-                    />
-
-                    <Input
-                      label="Export Label"
-                      value={form.config.exportLabel}
-                      onChange={(v) =>
-                        handleChange("config", {
-                          ...form.config,
-                          exportLabel: v
-                        })
-                      }
-                    />
-                  </div>
-
-                  <Input
-                    label="Custom Error Message"
-                    value={form.config.errorMessage}
-                    onChange={(v) =>
-                      handleChange("config", {
-                        ...form.config,
-                        errorMessage: v
-                      })
-                    }
-                  />
-                </div>
-
-                {/* =====================================================
-                  📊 COLUMN EDITOR (GRID TYPES ONLY)
-                ===================================================== */}
-                {form.parsedColumns?.length > 0 && (
-                  <div style={styles.card}>
-                    <SectionHeader
-                      title="Column Editor"
-                      subtitle="Adjust grid column behavior"
-                    />
-
-                    {form.parsedColumns.map((col, i) => (
-                      <div key={i} style={styles.optionRow}>
-
-                        <div style={styles.optionIndex}>
-                          {col.label}
-                        </div>
-
-                        <div style={{ flex: 1 }}>
-                          <RichTextEditor
-                            label={`col-${i}`}
-                            value={col.text}
-                            onChange={(v) => {
-                              const updated = [...form.parsedColumns];
-                              updated[i].text = v;
-                              handleChange("parsedColumns", updated);
-                            }}
-                          />
-                        </div>
-
-                        <div style={styles.optionRightInline}>
-
-                          <CheckInline
-                            label="Exclusive"
-                            checked={col.exclusive || false}
-                            onChange={(v) => {
-                              const updated = [...form.parsedColumns];
-                              updated[i].exclusive = [97, 99].includes(col.value)
-                                ? v
-                                : false;
-                              handleChange("parsedColumns", updated);
-                            }}
-                          />
-
-                          <CheckInline
-                            label="Anchor"
-                            checked={col.anchor || false}
-                            onChange={(v) => {
-                              const updated = [...form.parsedColumns];
-                              updated[i].anchor = v;
-                              handleChange("parsedColumns", updated);
-                            }}
-                          />
-
-                        </div>
+                          </div>
+                        ))}
 
                       </div>
-                    ))}
+                    )}
 
+                  </div>
+                )}
+              </div> {/* END panelContent */}
+            {/* =====================================================
+              👉 RIGHT PANEL (PREVIEW + OUTPUT)
+            ===================================================== */}
+            <div style={styles.rightPanel}>
+
+              {/* =====================================================
+                🎯 ACTION BAR (STICKY TOP)
+              ===================================================== */}
+              <div style={styles.actionBar}>
+
+                <div style={styles.actionLeft}>
+                  <button
+                    onClick={handlePreview}
+                    style={styles.previewBtn}
+                  >
+                    🔍 Preview
+                  </button>
+                </div>
+
+                <div style={styles.actionRight}>
+                  <GenerateButton
+                    onClick={handleGenerate}
+                    loading={loading}
+                    disabled={!parsed.length}
+                  />
+                </div>
+
+              </div>
+
+              {/* =====================================================
+                👁️ LIVE PREVIEW
+              ===================================================== */}
+              <div style={styles.previewWrapper}>
+
+                <div style={styles.previewCard}>
+                  <SectionHeader
+                    title="Live Preview"
+                    subtitle="Full survey rendering"
+                  />
+
+                  {parsed.length > 0 ? (() => {
+
+                    const enrichedQuestions = parsed.map((q) => {
+                      const original =
+                        questions.find(qn => qn.id === q.id) || {};
+
+                      const normalizePipe = (txt) =>
+                        (txt || "").replace(/\[pipe:\s*(.*?)\]/gi, (_, v) => {
+                          return `[pipe: ${v.trim()}]`;
+                        });
+
+                      return {
+                        ...q,
+
+                        // label fallback
+                        label: q.label || q.id,
+
+                        title: normalizePipe(q.title),
+                        description: normalizePipe(q.description),
+                        insert: original.insert || q.insert || null,
+
+                        /* ================= OPTIONS ================= */
+                        options:
+                          ["radio","checkbox","ranking"].includes(q.type)
+                            ? processOptions(
+                                original.parsedOptions?.length > 0
+                                  ? original.parsedOptions
+                                  : q.options,
+                                original.config || {}
+                              )
+                            : q.options,
+
+                        /* ================= ROWS ================= */
+                        rows:
+                          q.type === "autosum"
+                            ? (original.parsedRows?.length > 0
+                                ? original.parsedRows
+                                : [])
+                            : q.type === "ranking"
+                              ? (original.parsedOptions?.length > 0
+                                  ? original.parsedOptions
+                                  : q.rows)
+                              : ["radio","checkbox"].includes(q.type)
+                                ? (original.parsedOptions?.length > 0
+                                    ? original.parsedOptions
+                                    : q.rows)
+                                : (original.parsedRows?.length > 0
+                                    ? original.parsedRows
+                                    : q.rows),
+
+                        /* ================= COLUMNS ================= */
+                        columns:
+                          original.parsedColumns?.length > 0
+                            ? original.parsedColumns
+                            : (q.columns || []),
+                      };
+                    });
+
+                    return (
+                      <SurveyPreview
+                        questions={enrichedQuestions}
+                        activeQuestionLabel={activePreviewLabel}
+                      />
+                    );
+
+                  })() : (
+                    <EmptyState text="Click Preview to render full survey" />
+                  )}
+
+                </div>
+
+                {/* =====================================================
+                  🧾 XML OUTPUT
+                ===================================================== */}
+                {xml && (
+                  <div style={styles.xmlCard}>
+                    <SectionHeader
+                      title="Generated XML"
+                      subtitle="Decipher-ready output"
+                    />
+
+                    <CopyBlock
+                      title="XML Output"
+                      code={xml}
+                    />
                   </div>
                 )}
 
               </div>
-            )}
-          </div> {/* END panelContent */}
-        {/* =====================================================
-          👉 RIGHT PANEL (PREVIEW + OUTPUT)
-        ===================================================== */}
-        <div style={styles.rightPanel}>
 
-          {/* =====================================================
-            🎯 ACTION BAR (STICKY TOP)
-          ===================================================== */}
-          <div style={styles.actionBar}>
+            </div> {/* END RIGHT PANEL */}
 
-            <div style={styles.actionLeft}>
-              <button
-                onClick={handlePreview}
-                style={styles.previewBtn}
-              >
-                🔍 Preview
-              </button>
-            </div>
-
-            <div style={styles.actionRight}>
-              <GenerateButton
-                onClick={handleGenerate}
-                loading={loading}
-                disabled={!parsed.length}
-              />
-            </div>
-
-          </div>
-
-          {/* =====================================================
-            👁️ LIVE PREVIEW
-          ===================================================== */}
-          <div style={styles.previewWrapper}>
-
-            <div style={styles.previewCard}>
-              <SectionHeader
-                title="Live Preview"
-                subtitle="Full survey rendering"
-              />
-
-              {parsed.length > 0 ? (() => {
-
-                const enrichedQuestions = parsed.map((q) => {
-                  const original =
-                    questions.find(qn => qn.id === q.id) || {};
-
-                  const normalizePipe = (txt) =>
-                    (txt || "").replace(/\[pipe:\s*(.*?)\]/gi, (_, v) => {
-                      return `[pipe: ${v.trim()}]`;
-                    });
-
-                  return {
-                    ...q,
-
-                    // label fallback
-                    label: q.label || q.id,
-
-                    title: normalizePipe(q.title),
-                    description: normalizePipe(q.description),
-                    insert: original.insert || q.insert || null,
-
-                    /* ================= OPTIONS ================= */
-                    options:
-                      ["radio","checkbox","ranking"].includes(q.type)
-                        ? processOptions(
-                            original.parsedOptions?.length > 0
-                              ? original.parsedOptions
-                              : q.options,
-                            original.config || {}
-                          )
-                        : q.options,
-
-                    /* ================= ROWS ================= */
-                    rows:
-                      q.type === "autosum"
-                        ? (original.parsedRows?.length > 0
-                            ? original.parsedRows
-                            : [])
-                        : q.type === "ranking"
-                          ? (original.parsedOptions?.length > 0
-                              ? original.parsedOptions
-                              : q.rows)
-                          : ["radio","checkbox"].includes(q.type)
-                            ? (original.parsedOptions?.length > 0
-                                ? original.parsedOptions
-                                : q.rows)
-                            : (original.parsedRows?.length > 0
-                                ? original.parsedRows
-                                : q.rows),
-
-                    /* ================= COLUMNS ================= */
-                    columns:
-                      original.parsedColumns?.length > 0
-                        ? original.parsedColumns
-                        : (q.columns || []),
-                  };
-                });
-
-                return (
-                  <SurveyPreview
-                    questions={enrichedQuestions}
-                    activeQuestionLabel={activePreviewLabel}
-                  />
-                );
-
-              })() : (
-                <EmptyState text="Click Preview to render full survey" />
-              )}
-
-            </div>
-
-            {/* =====================================================
-              🧾 XML OUTPUT
-            ===================================================== */}
-            {xml && (
-              <div style={styles.xmlCard}>
-                <SectionHeader
-                  title="Generated XML"
-                  subtitle="Decipher-ready output"
-                />
-
-                <CopyBlock
-                  title="XML Output"
-                  code={xml}
-                />
-              </div>
-            )}
-
-          </div>
-
-        </div> {/* END RIGHT PANEL */}
-
-      </div> {/* END LAYOUT */}
-    </div>   {/* END APP SHELL */}
-  </>
+          </div> {/* END LAYOUT */}
+        </div>   {/* END APP SHELL */}
+      </div>
+      )}
+      
+    </>
   );
 }
 
