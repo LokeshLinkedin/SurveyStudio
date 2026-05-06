@@ -14,9 +14,8 @@ from backend.xml_generator import generate_xml
 # =============================
 app = FastAPI(title="SurveyStudio API")
 
-
 # =============================
-# 🔐 CORS (safe for Darwin)
+# 🔐 CORS (Darwin friendly)
 # =============================
 app.add_middleware(
     CORSMiddleware,
@@ -26,21 +25,18 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-
 # =============================
-# 📦 PATH SETUP (robust)
+# 📦 PATH SETUP
 # =============================
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 FRONTEND_DIR = os.path.abspath(os.path.join(BASE_DIR, "../frontend/dist"))
 ASSETS_DIR = os.path.join(FRONTEND_DIR, "assets")
-
 
 # =============================
 # 🔹 REQUEST MODEL
 # =============================
 class TextRequest(BaseModel):
     text: str
-
 
 # =============================
 # 🔹 PREVIEW API
@@ -56,15 +52,17 @@ async def preview(req: TextRequest):
             content={"error": str(e), "questions": []}
         )
 
-
 # =============================
-# 🔹 GENERATE XML API
+# 🔹 GENERATE API (NO LOGIN)
 # =============================
 @app.post("/generate")
 async def generate(payload: List[Dict]):
     try:
         if not payload:
-            raise Exception("Empty payload")
+            return JSONResponse(
+                status_code=400,
+                content={"error": "Empty payload", "xml": ""}
+            )
 
         xml = generate_xml(payload)
         return {"xml": xml}
@@ -75,15 +73,13 @@ async def generate(payload: List[Dict]):
             content={"error": str(e), "xml": ""}
         )
 
-
 # =============================
-# 🌐 STATIC FILES (React build)
+# 🌐 STATIC FILES
 # =============================
 if os.path.exists(ASSETS_DIR):
     app.mount("/assets", StaticFiles(directory=ASSETS_DIR), name="assets")
 else:
     print("⚠️ WARNING: assets folder not found:", ASSETS_DIR)
-
 
 # =============================
 # 🌐 FAVICON
@@ -95,20 +91,23 @@ def favicon():
         return FileResponse(path)
     return JSONResponse(status_code=404, content={"error": "favicon not found"})
 
-
 # =============================
-# 🌐 HEALTH CHECK (IMPORTANT)
+# 🌐 HEALTH CHECK
 # =============================
 @app.get("/health")
 def health():
     return {"status": "ok"}
 
-
 # =============================
-# 🌐 REACT ROUTING (CATCH ALL)
+# 🌐 REACT ROUTING (SAFE)
 # =============================
 @app.get("/{full_path:path}")
 def serve_react(full_path: str):
+
+    # 🔥 VERY IMPORTANT: skip API routes
+    if full_path.startswith("generate") or full_path.startswith("preview"):
+        return JSONResponse(status_code=404, content={"error": "API route not found"})
+
     index_file = os.path.join(FRONTEND_DIR, "index.html")
 
     if not os.path.exists(index_file):
