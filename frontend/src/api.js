@@ -1,13 +1,16 @@
-import { getAuthHeader, logout } from "./auth";
-
 // =============================
 // 🔐 CONFIG
 // =============================
-const BASE_URL =
-  import.meta.env.VITE_API_URL || "https://surveystudio.onrender.com";
+
+// DEV → localhost
+// DARWIN → same origin (no CORS)
+const BASE_URL = import.meta.env.DEV
+  ? "http://localhost:5004"
+  : "";
+
 
 // =============================
-// 🔍 PREVIEW API (PUBLIC)
+// 🔍 PREVIEW API
 // =============================
 export async function previewQuestion(payload) {
   try {
@@ -28,28 +31,10 @@ export async function previewQuestion(payload) {
       }),
     });
 
-    const text = await res.text();
-
-    let data;
-    try {
-      data = JSON.parse(text);
-    } catch {
-      console.error("❌ Invalid JSON from preview:", text);
-      return { questions: [] };
-    }
-
-    // 🔐 ACCESS BLOCKED (rare but safe)
-    if (res.status === 403) {
-      alert("Access denied.");
-      return { questions: [] };
-    }
+    const data = await res.json();
 
     if (!res.ok) {
       throw new Error(data?.error || "Preview API failed");
-    }
-
-    if (data.error) {
-      throw new Error(data.error);
     }
 
     return data;
@@ -60,8 +45,9 @@ export async function previewQuestion(payload) {
   }
 }
 
+
 // =============================
-// ⚙️ GENERATE XML API (PROTECTED)
+// ⚙️ GENERATE XML API
 // =============================
 export async function generateXML(payload) {
   try {
@@ -73,47 +59,14 @@ export async function generateXML(payload) {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        ...getAuthHeader(), // ✅ attach token
       },
       body: JSON.stringify(payload),
     });
 
-    const text = await res.text();
+    const data = await res.json();
 
-    let data;
-    try {
-      data = JSON.parse(text);
-    } catch {
-      console.error("❌ Invalid JSON from generate:", text);
-      throw new Error("Invalid generate response");
-    }
-
-    // 🔐 TOKEN EXPIRED
-    if (res.status === 401) {
-      console.warn("⚠️ Session expired");
-      logout();
-      alert("Session expired. Please login again.");
-      window.location.reload();
-      return { xml: "" };
-    }
-
-    // 🔐 ACCESS BLOCKED
-    if (res.status === 403) {
-      console.warn("⚠️ Access denied");
-      logout();
-      alert("Access denied.");
-      window.location.reload();
-      return { xml: "" };
-    }
-
-    // ❌ HTTP ERROR
     if (!res.ok) {
       throw new Error(data?.error || "Generate API failed");
-    }
-
-    // ❌ BACKEND ERROR
-    if (data.error) {
-      throw new Error(data.error);
     }
 
     return data;
