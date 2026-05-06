@@ -6,7 +6,7 @@
 // DARWIN → same origin (no CORS)
 const BASE_URL = import.meta.env.DEV
   ? "http://localhost:5004"
-  : window.location.origin + window.location.pathname.replace(/\/$/, "");
+  : window.location.origin + "/user/lokekuma/vscode/proxy/5004";
 
 
 // =============================
