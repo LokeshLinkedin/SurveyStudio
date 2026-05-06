@@ -1,23 +1,19 @@
 // =============================
-// 🔐 CONFIG
+// 🔐 CONFIG (DARWIN SAFE)
 // =============================
 
-// DEV → localhost
-// DARWIN → same origin (no CORS)
-const BASE_URL = import.meta.env.DEV
-  ? "http://localhost:5004"
-  : window.location.origin + "/user/lokekuma/vscode/proxy/5004";
-
+// 👉 Empty = same origin
+// Works in:
+// - localhost
+// - Darwin proxy (/user/.../proxy/5004)
+// - future deployments
+const BASE_URL = "";
 
 // =============================
 // 🔍 PREVIEW API
 // =============================
 export async function previewQuestion(payload) {
   try {
-    if (import.meta.env.DEV) {
-      console.log("🔍 PREVIEW PAYLOAD:", payload);
-    }
-
     const res = await fetch(`${BASE_URL}/preview`, {
       method: "POST",
       headers: {
@@ -51,10 +47,6 @@ export async function previewQuestion(payload) {
 // =============================
 export async function generateXML(payload) {
   try {
-    if (import.meta.env.DEV) {
-      console.log("🚀 GENERATE PAYLOAD:", payload);
-    }
-
     const res = await fetch(`${BASE_URL}/generate`, {
       method: "POST",
       headers: {
