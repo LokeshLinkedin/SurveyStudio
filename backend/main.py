@@ -32,11 +32,15 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 FRONTEND_DIR = os.path.abspath(os.path.join(BASE_DIR, "../frontend/dist"))
 ASSETS_DIR = os.path.join(FRONTEND_DIR, "assets")
 
+print("📁 FRONTEND_DIR:", FRONTEND_DIR)
+print("📁 ASSETS_DIR:", ASSETS_DIR)
+
 # =============================
 # 🔹 REQUEST MODEL
 # =============================
 class TextRequest(BaseModel):
     text: str
+
 
 # =============================
 # 🔹 PREVIEW API
@@ -52,8 +56,9 @@ async def preview(req: TextRequest):
             content={"error": str(e), "questions": []}
         )
 
+
 # =============================
-# 🔹 GENERATE API (NO LOGIN)
+# 🔹 GENERATE API
 # =============================
 @app.post("/generate")
 async def generate(payload: List[Dict]):
@@ -73,13 +78,26 @@ async def generate(payload: List[Dict]):
             content={"error": str(e), "xml": ""}
         )
 
+
 # =============================
-# 🌐 STATIC FILES
+# 🌐 STATIC FILES (CRITICAL)
 # =============================
 if os.path.exists(ASSETS_DIR):
     app.mount("/assets", StaticFiles(directory=ASSETS_DIR), name="assets")
 else:
-    print("⚠️ WARNING: assets folder not found:", ASSETS_DIR)
+    print("❌ ERROR: assets folder NOT found:", ASSETS_DIR)
+
+
+# =============================
+# 🌐 ROOT (React entry)
+# =============================
+@app.get("/")
+def serve_root():
+    index_file = os.path.join(FRONTEND_DIR, "index.html")
+    if os.path.exists(index_file):
+        return FileResponse(index_file)
+    return JSONResponse(status_code=500, content={"error": "index.html not found"})
+
 
 # =============================
 # 🌐 FAVICON
@@ -91,6 +109,7 @@ def favicon():
         return FileResponse(path)
     return JSONResponse(status_code=404, content={"error": "favicon not found"})
 
+
 # =============================
 # 🌐 HEALTH CHECK
 # =============================
@@ -98,26 +117,24 @@ def favicon():
 def health():
     return {"status": "ok"}
 
+
 # =============================
-# 🌐 REACT ROUTING (SAFE)
+# 🌐 SPA FALLBACK (SAFE)
 # =============================
 @app.get("/{full_path:path}")
-def serve_react(full_path: str):
+def serve_spa(full_path: str):
 
-    # 🔥 Skip API routes
-    if full_path.startswith("generate") or full_path.startswith("preview"):
+    # ❌ Never override API routes
+    if full_path.startswith("preview") or full_path.startswith("generate"):
         return JSONResponse(status_code=404, content={"error": "API route not found"})
 
-    # 🔥 Skip static asset routes
-    if full_path.startswith("assets") or full_path.endswith(".js") or full_path.endswith(".css"):
+    # ❌ Never override static files
+    if full_path.startswith("assets") or "." in full_path:
         return JSONResponse(status_code=404, content={"error": "Static file not found"})
 
+    # ✅ Serve React app
     index_file = os.path.join(FRONTEND_DIR, "index.html")
+    if os.path.exists(index_file):
+        return FileResponse(index_file)
 
-    if not os.path.exists(index_file):
-        return JSONResponse(
-            status_code=500,
-            content={"error": "Frontend build not found"}
-        )
-
-    return FileResponse(index_file)
+    return JSONResponse(status_code=500, content={"error": "Frontend build missing"})
