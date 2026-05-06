@@ -104,9 +104,13 @@ def health():
 @app.get("/{full_path:path}")
 def serve_react(full_path: str):
 
-    # 🔥 VERY IMPORTANT: skip API routes
+    # 🔥 Skip API routes
     if full_path.startswith("generate") or full_path.startswith("preview"):
         return JSONResponse(status_code=404, content={"error": "API route not found"})
+
+    # 🔥 Skip static asset routes
+    if full_path.startswith("assets") or full_path.endswith(".js") or full_path.endswith(".css"):
+        return JSONResponse(status_code=404, content={"error": "Static file not found"})
 
     index_file = os.path.join(FRONTEND_DIR, "index.html")
 
