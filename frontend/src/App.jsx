@@ -2,9 +2,6 @@ import { useState, useEffect } from "react";
 import { previewQuestion, generateXML } from "./api";
 import SurveyPreview from "./components/SurveyPreview";
 import GenerateButton from "./components/GenerateButton";
-import { getUser, logout } from "./auth";
-
-import Login from "./Login";
 
 
 // 🔥 CLEAN SPECIAL TAGS (ANCHOR, EXCLUSIVE, ETC.)
@@ -15,7 +12,6 @@ const cleanText = (txt) =>
 
 
 export default function App() {
-  const [user, setUser] = useState(null);
   const [questions, setQuestions] = useState([]);
   const [activeIndex, setActiveIndex] = useState(0);
   const [parsed, setParsed] = useState([]);
@@ -84,19 +80,6 @@ export default function App() {
   const [xml, setXml] = useState("");
   const [loading, setLoading] = useState(false);
 
-  // ============================================
-  // 🔐 AUTH CHECK
-  // ============================================
-  useEffect(() => {
-    const token = localStorage.getItem("token");
-    const u = localStorage.getItem("user");
-
-    if (token && u) {
-      setUser(u);   // ✅ valid session
-    } else {
-      setUser(null); // 🔥 force login
-    }
-  }, []);
   // ============================================
   // 🔧 FUNCTIONS (safe below)
   // ============================================
@@ -1121,35 +1104,7 @@ export default function App() {
   // UI
   // ============================================
   return (
-    <>
-      {!user ? (
-        <Login onLogin={setUser} />
-      ) : (
-
         <div style={styles.appShell}>
-
-          {/* =====================================================
-            🔝 TOP BAR (GLOBAL HEADER)
-          ===================================================== */}
-          <div style={styles.topBar}>
-            <div style={styles.topLeft}>
-              <h2 style={styles.appTitle}>Survey Studio</h2>
-            </div>
-
-            <div style={styles.topRight}>
-              <span style={styles.userText}>Welcome: {user}</span>
-              <button
-                style={styles.logoutBtn}
-                onClick={() => {
-                  logout();
-                  setUser(null);
-                }}
-              >
-                Logout
-              </button>
-            </div>
-          </div>
-
           {/* =====================================================
             🧱 MAIN LAYOUT (SIDEBAR + CONTENT + RIGHT PANEL)
           ===================================================== */}
@@ -2362,8 +2317,6 @@ export default function App() {
         </div>   {/* END APP SHELL */}
       </div>
       )}
-      
-    </>
   );
 }
 
