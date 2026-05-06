@@ -1,19 +1,20 @@
-// =============================
-// 🔐 CONFIG (DARWIN SAFE)
-// =============================
-
-// 👉 Empty = same origin
-// Works in:
-// - localhost
-// - Darwin proxy (/user/.../proxy/5004)
-// - future deployments
-const BASE_URL = "";
+import { getAuthHeader, logout } from "./auth";
 
 // =============================
-// 🔍 PREVIEW API
+// 🔐 CONFIG
+// =============================
+const BASE_URL =
+  import.meta.env.VITE_API_URL || "https://surveystudio.onrender.com";
+
+// =============================
+// 🔍 PREVIEW API (PUBLIC)
 // =============================
 export async function previewQuestion(payload) {
   try {
+    if (import.meta.env.DEV) {
+      console.log("🔍 PREVIEW PAYLOAD:", payload);
+    }
+
     const res = await fetch(`${BASE_URL}/preview`, {
       method: "POST",
       headers: {
@@ -27,10 +28,28 @@ export async function previewQuestion(payload) {
       }),
     });
 
-    const data = await res.json();
+    const text = await res.text();
+
+    let data;
+    try {
+      data = JSON.parse(text);
+    } catch {
+      console.error("❌ Invalid JSON from preview:", text);
+      return { questions: [] };
+    }
+
+    // 🔐 ACCESS BLOCKED (rare but safe)
+    if (res.status === 403) {
+      alert("Access denied.");
+      return { questions: [] };
+    }
 
     if (!res.ok) {
       throw new Error(data?.error || "Preview API failed");
+    }
+
+    if (data.error) {
+      throw new Error(data.error);
     }
 
     return data;
@@ -41,24 +60,60 @@ export async function previewQuestion(payload) {
   }
 }
 
-
 // =============================
-// ⚙️ GENERATE XML API
+// ⚙️ GENERATE XML API (PROTECTED)
 // =============================
 export async function generateXML(payload) {
   try {
+    if (import.meta.env.DEV) {
+      console.log("🚀 GENERATE PAYLOAD:", payload);
+    }
+
     const res = await fetch(`${BASE_URL}/generate`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
+        ...getAuthHeader(), // ✅ attach token
       },
       body: JSON.stringify(payload),
     });
 
-    const data = await res.json();
+    const text = await res.text();
 
+    let data;
+    try {
+      data = JSON.parse(text);
+    } catch {
+      console.error("❌ Invalid JSON from generate:", text);
+      throw new Error("Invalid generate response");
+    }
+
+    // 🔐 TOKEN EXPIRED
+    if (res.status === 401) {
+      console.warn("⚠️ Session expired");
+      logout();
+      alert("Session expired. Please login again.");
+      window.location.reload();
+      return { xml: "" };
+    }
+
+    // 🔐 ACCESS BLOCKED
+    if (res.status === 403) {
+      console.warn("⚠️ Access denied");
+      logout();
+      alert("Access denied.");
+      window.location.reload();
+      return { xml: "" };
+    }
+
+    // ❌ HTTP ERROR
     if (!res.ok) {
       throw new Error(data?.error || "Generate API failed");
+    }
+
+    // ❌ BACKEND ERROR
+    if (data.error) {
+      throw new Error(data.error);
     }
 
     return data;
