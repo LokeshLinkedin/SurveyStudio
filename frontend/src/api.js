@@ -5,8 +5,8 @@
 // DEV → localhost
 // DARWIN → same origin (no CORS)
 const BASE_URL = import.meta.env.DEV
-  ? "http://localhost:5004"
-  : "";
+  ? "http://localhost:5010"
+  : window.location.pathname.replace(/\/$/, "");
 
 
 // =============================
