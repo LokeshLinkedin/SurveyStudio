@@ -243,17 +243,19 @@ async def generate(payload: List[Dict], user=Depends(get_current_user)):
         return {"error": str(e), "xml": ""}
 
 
-# =============================
-# 🌐 SERVE REACT FRONTEND (FINAL)
-# =============================
 frontend_path = os.path.join(
     os.path.dirname(__file__),
     "../frontend/dist"
 )
 
-# Serve all static files (JS, CSS, assets)
+# Serve static assets (JS, CSS, etc.)
 app.mount(
-    "/",
-    StaticFiles(directory=frontend_path, html=True),
-    name="frontend"
+    "/assets",
+    StaticFiles(directory=os.path.join(frontend_path, "assets")),
+    name="assets"
 )
+
+# Catch-all route for React (SPA)
+@app.get("/{full_path:path}")
+def serve_react(full_path: str):
+    return FileResponse(os.path.join(frontend_path, "index.html"))
