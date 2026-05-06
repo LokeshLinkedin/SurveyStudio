@@ -9,6 +9,7 @@ import os
 from backend.parser_service import smart_block_parser
 from backend.xml_generator import generate_xml
 
+
 # =============================
 # 🔐 AUTH + SECURITY
 # =============================
@@ -248,14 +249,19 @@ frontend_path = os.path.join(
     "../frontend/dist"
 )
 
-# Serve static assets (JS, CSS, etc.)
+# Serve static assets (JS, CSS)
 app.mount(
     "/assets",
     StaticFiles(directory=os.path.join(frontend_path, "assets")),
     name="assets"
 )
 
-# Catch-all route for React (SPA)
+# Serve favicon (optional)
+@app.get("/favicon.svg")
+def favicon():
+    return FileResponse(os.path.join(frontend_path, "favicon.svg"))
+
+# Catch-all → React handles routing
 @app.get("/{full_path:path}")
 def serve_react(full_path: str):
     return FileResponse(os.path.join(frontend_path, "index.html"))
